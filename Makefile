@@ -17,7 +17,7 @@ clean: stop
 	-docker rmi slacktionic:$(version)
 
 run:
-	docker run --rm --name slacktionic -v $(pwd):/slacktionic -p 80:9292 slacktionic:$(version)
+	docker run --rm --name slacktionic -v $(PWD):/slacktionic -p 9292:9292 slacktionic:$(version)
 
 stop:
 	-docker stop slacktionic

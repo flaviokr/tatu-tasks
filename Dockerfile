@@ -2,7 +2,7 @@ FROM ruby:2.6.3
 
 WORKDIR /slacktionic
 
-COPY Gemfile .
+COPY Gemfile* ./
 
 RUN bundle install
 
