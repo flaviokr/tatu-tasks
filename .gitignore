@@ -1,3 +1,4 @@
 .env
 tasks/*
 !tasks/.keep
+kubernetes.yaml
