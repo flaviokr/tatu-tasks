@@ -2,7 +2,11 @@ require 'sinatra'
 require 'sinatra/reloader' if development?
 require 'http'
 
-post '/reaction' do
+get '/' do
+  'I\'m Healthy'
+end
+
+post '/' do
   payload = JSON.parse(request.body.read)
   handle_reaction(payload['event'])
 end
@@ -38,7 +42,7 @@ end
 def list_tasks(channel_id, user_id)
   task_list = Dir['tasks/*'].map.with_index(1) do |task_filename, idx|
     message_ref = task_filename.delete('/tasks').gsub('?', '/')
-    label = File.read(task_filename).lines.first.strip
+    label = File.read(task_filename).lines.first.strip[0..100]
     task_link = "*#{idx}.* #{label} <https://playax.slack.com/archives/#{message_ref}|:link:>"
   end
 

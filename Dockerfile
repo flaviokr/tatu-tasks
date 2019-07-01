@@ -8,4 +8,4 @@ RUN bundle install
 
 COPY . .
 
-CMD ["puma"]
+CMD ["puma", "-e", "production"]

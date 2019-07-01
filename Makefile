@@ -1,4 +1,4 @@
-version ?= 0.1.0
+version ?= 0.1.4
 
 all: tag_old_image build rm_old_image
 
@@ -15,9 +15,20 @@ rm_old_image:
 clean: stop
 	-docker rm slacktionic
 	-docker rmi slacktionic:$(version)
+	-docker rmi gcr.io/playax18/slacktionic:$(version)
 
 run:
-	docker run --rm --name slacktionic -v $(PWD):/slacktionic -p 9292:9292 slacktionic:$(version)
+	docker run --rm --name slacktionic -v $(PWD):/slacktionic -p 9292:9292 slacktionic:$(version) puma -e development
 
 stop:
 	-docker stop slacktionic
+
+version_check:
+	@( read -p "Deploy version $(version)? [y/n] " ans && case "$$ans" in [yY]) true;; *) false;; esac )
+
+deploy: version_check all
+	docker tag slacktionic:$(version) gcr.io/playax18/slacktionic:$(version)
+	docker push gcr.io/playax18/slacktionic:$(version)
+	sed -E 's/gcr\.io\/playax18\/slacktionic\:[0-9.]+/gcr.io\/playax18\/slacktionic:$(version)/g' kubernetes.yaml > temp_kube.yaml
+	mv temp_kube.yaml kubernetes.yaml
+	kubectl apply -f kubernetes.yaml
