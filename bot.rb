@@ -2,21 +2,36 @@ require 'sinatra'
 require 'sinatra/reloader' if development?
 require 'http'
 
+before do
+  @body = request.body.read
+  authenticate_request if request.request_method == 'POST'
+end
+
 get '/' do
   'I\'m Healthy'
 end
 
 post '/' do
-  payload = JSON.parse(request.body.read)
+  payload = JSON.parse(@body)
   handle_reaction(payload['event'])
 end
 
 post '/list' do
-  payload = URI.decode_www_form(request.body.read).to_h
+  payload = URI.decode_www_form(@body).to_h
   list_tasks(payload['channel_id'], payload['user_id'])
 end
 
 private
+
+def authenticate_request
+  data = ['v0', request.get_header('HTTP_X_SLACK_REQUEST_TIMESTAMP'), @body].join(':')
+  hexdigest = OpenSSL::HMAC.hexdigest('SHA256', ENV['SIGNING_SECRET'], data)
+  expected_signature = "v0=#{hexdigest}"
+
+  request_signature = request.get_header('HTTP_X_SLACK_SIGNATURE')
+
+  halt(401) if request_signature != expected_signature
+end
 
 def handle_reaction(event)
   item = event['item']
