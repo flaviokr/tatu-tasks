@@ -18,7 +18,18 @@ end
 
 post '/list' do
   payload = URI.decode_www_form(@body).to_h
-  list_tasks(payload['channel_id'], payload['user_id'])
+  post_message(payload['channel_id'], payload['user_id'], list_tasks)
+end
+
+post '/interaction' do
+  payload = JSON.parse(URI.decode_www_form(@body)[0][1])
+  action = payload.dig('actions', 0, 'value')
+  response_url = payload['response_url']
+
+  case action
+  when 'update' then update_message(response_url, list_tasks)
+  when 'delete' then delete_message(response_url)
+  end
 end
 
 private
@@ -54,19 +65,51 @@ def handle_reaction(event)
   end
 end
 
-def list_tasks(channel_id, user_id)
-  task_list = Dir['tasks/*'].map.with_index(1) do |task_filename, idx|
+def list_tasks
+  tasks = Dir['tasks/*'].map.with_index(1) do |task_filename, idx|
     message_ref = task_filename.delete('/tasks').gsub('?', '/')
     label = File.read(task_filename).lines.first.strip[0..100]
     task_link = "*#{idx}.* #{label} <https://playax.slack.com/archives/#{message_ref}|:link:>"
   end
 
-  post_message(channel_id, user_id, task_list.join("\n"))
+  message_blocks = [
+    build_section(tasks.join("\n")),
+    build_actions([build_button(:Fechar, :delete), build_button(:Atualizar, :update)])
+  ]
 end
 
-def post_message(channel_id, user_id, text)
-  json = { channel: channel_id, user: user_id, text: text }
-  HTTP.auth("Bearer #{ENV['BOT_TOKEN']}").post('https://slack.com/api/chat.postEphemeral', json: json)
+def build_section(text)
+  build_text_block(:section, text, text_type: :mrkdwn)
+end
+
+def build_button(text, value)
+  build_text_block(:button, text, value: value)
+end
+
+def build_actions(elements)
+  { type: :actions, elements: elements }
+end
+
+def build_text_block(type, text, opts = {})
+  text_type = opts.delete(:text_type) || :plain_text
+  { type: type, text: { type: text_type, text: text } }.merge(opts)
+end
+
+def post_message(channel_id, user_id, blocks)
+  json = { channel: channel_id, user: user_id, blocks: blocks }
+  auth_slack_http.post('https://slack.com/api/chat.postEphemeral', json: json)
+end
+
+def update_message(response_url, blocks)
+  auth_slack_http.post(response_url, json: { blocks: blocks, replace_original: true })
+end
+
+def delete_message(response_url)
+  auth_slack_http.post(response_url, json: { delete_original: true })
+end
+
+def auth_slack_http
+  HTTP.auth("Bearer #{ENV['BOT_TOKEN']}")
 end
 
 def get_message_text(channel_id, message_id)
