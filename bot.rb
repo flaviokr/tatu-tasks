@@ -60,7 +60,7 @@ def handle_reaction(event)
         File.write(path_to_file, text)
       end
     end
-  when 'white_check_mark'
+  when 'done'
     File.delete(path_to_file) if File.exist?(path_to_file)
   end
 end
