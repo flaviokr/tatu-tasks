@@ -1,4 +1,4 @@
-version ?= 0.2.1
+version ?= 0.2.2
 
 all: tag_old_image build rm_old_image
 
