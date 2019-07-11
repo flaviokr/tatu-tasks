@@ -68,7 +68,7 @@ end
 def list_tasks
   tasks = Dir['tasks/*'].map.with_index(1) do |task_filename, idx|
     message_ref = task_filename.delete('/tasks').gsub('?', '/')
-    label = File.read(task_filename).lines.first.strip[0..70]
+    label = File.read(task_filename).lines.first&.strip[0..70]
     task_link = "*#{idx}.* #{label} <https://playax.slack.com/archives/#{message_ref}|:link:>"
   end
 
