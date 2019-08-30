@@ -1,6 +1,10 @@
 require 'sinatra'
 require 'sinatra/reloader' if development?
 require 'http'
+require 'google/cloud/firestore'
+
+FIRESTORE = Google::Cloud::Firestore.new(project_id: ENV['GCP_PROJECT_ID'])
+WORKSPACE = 'playax'
 
 before do
   @body = request.body.read
@@ -48,29 +52,33 @@ def handle_reaction(event)
   item = event['item']
   channel_id = item['channel']
   message_id = item['ts']
-  path_to_file = "tasks/#{channel_id}?p#{message_id.delete('.')}"
+
+  task_doc_id = "#{channel_id}-#{message_id}"
+  document_query = FIRESTORE.col("workspaces/#{WORKSPACE}/tasks").doc(task_doc_id)
 
   case event['reaction']
   when 'warning'
-    unless File.exist?(path_to_file)
-      FileUtils.touch(path_to_file)
-
-      Thread.new do
-        text = get_message_text(channel_id, message_id)
-        File.write(path_to_file, text)
-      end
+    unless document_query.get.exists?
+      document_query.set(
+        channel_id: channel_id,
+        message_ts: message_id,
+        text: get_message_text(channel_id, message_id)
+      )
     end
   when 'done'
-    File.delete(path_to_file) if File.exist?(path_to_file)
+    document_query.delete
   end
 end
 
 def list_tasks
-  tasks = Dir['tasks/*'].map.with_index(1) do |task_filename, idx|
-    message_ref = task_filename.delete('/tasks').gsub('?', '/')
-    label = File.read(task_filename).lines.first&.strip&.slice(0, 70)
-    task_link = "*#{idx}.* #{label} <https://playax.slack.com/archives/#{message_ref}|:link:>"
+  tasks_collection = FIRESTORE.col('workspaces').doc(WORKSPACE).col('tasks').get
+  tasks = tasks_collection.map.with_index(1) do |task, idx|
+    channel_id, message_ts, text = task.data.values_at(:channel_id, :message_ts, :text)
+    label = text&.lines&.first&.strip&.slice(0, 70)
+    task_link = "*#{idx}.* #{label} <https://playax.slack.com/archives/#{channel_id}/#{message_ts}|:link:>"
   end
+
+  tasks = ['Não há tarefas pendentes. Eba :tada:'] if tasks.empty?
 
   message_blocks = [
     build_section(tasks.join("\n")),
