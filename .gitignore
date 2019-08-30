@@ -2,3 +2,4 @@
 tasks/*
 !tasks/.keep
 kubernetes.yaml
+firestore-keys.json
